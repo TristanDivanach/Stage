@@ -1,0 +1,22 @@
+services:
+  zabbix-agent:
+    image: zabbix/zabbix-agent2:alpine-latest
+    container_name: zabbix-agent
+    restart: unless-stopped
+    ports:
+      - "10050:10051"
+    environment:
+      ${VM_NAME}
+      ${ZABBIX_IP}
+      ${ZABBIX_DN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    privileged: true
+    networks:
+      - zabbix-net
+ 
+networks:
+  zabbix-net:
+    driver: bridge  
