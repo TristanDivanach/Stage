@@ -4,7 +4,7 @@ services:
     container_name: zabbix-agent
     restart: unless-stopped
     ports:
-      - "10050:10051"
+      - "10050:10050"
     environment:
       ${VM_NAME}
       ${ZABBIX_IP}
