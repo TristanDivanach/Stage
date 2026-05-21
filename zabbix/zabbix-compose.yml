@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  zabbix-agent:
+    image: zabbix/zabbix-agent2:latest
+    hostname: "{{.Node.Hostname}}"
+    networks:
+      - hostnet
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+    environment:
+      - ZBX_SERVER_HOST=${ZABBIX_IP},${ZABBIX_DN}
+      - ZBX_SERVER_ACTIVE=${ZABBIX_IP}
+      
+     
+      - ZBX_HOSTNAMEITEM=system.hostname
+      
+      - ZBX_METADATA=Linux
+      - ZBX_HOSTMETADATA=Linux
+      
+      - ZBX_STARTAGENTS=0
+      
+    deploy:
+      mode: global
+      update_config:
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+
+networks:
+  hostnet:
+    external: true
+    name: host

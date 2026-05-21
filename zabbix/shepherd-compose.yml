@@ -1,0 +1,13 @@
+services:
+  shepherd:
+    image: djmaze/shepherd:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - SLEEP_TIME=6h
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
