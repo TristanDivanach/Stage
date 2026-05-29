@@ -1,0 +1,44 @@
+package           : tech-install-glpi
+version           : 1.17-0
+architecture      : x64
+section           : base
+priority          : optional
+name              : Installation de l'agent GLPI 1.17
+categories        : Inventaire
+maintainer        : Admin
+description       : Installe et configure l'agent GLPI 1.17
+depends           : 
+conflicts         : 
+maturity          : PROD
+locale            : all
+target_os         : windows
+min_wapt_version  : 
+sources           : 
+installed_size    : 
+impacted_process  : glpi-agent.exe
+description_fr    : Installation silencieuse de l'agent GLPI 1.17 avec configuration du serveur
+description_pl    : 
+description_de    : 
+description_es    : 
+description_pt    : 
+description_it    : 
+description_nl    : 
+description_ru    : 
+audit_schedule    : 
+editor            : 
+keywords          : 
+licence           : 
+homepage          : 
+package_uuid      : c1e0daa1-4800-4c85-a527-029a9454bd7c
+valid_from        : 
+valid_until       : 
+forced_install_on : 
+changelog         : 
+min_os_version    : 
+max_os_version    : 
+icon_sha256sum    : 
+signer            : technature_master
+signer_fingerprint: b99c0b76fbfa9ed63036e13517fe48e721cfaf9401aeb51b82e5e4076b96c5a9
+signature_date    : 2026-05-29T09:59:47.000000
+signed_attributes : package,version,architecture,section,priority,name,categories,maintainer,description,depends,conflicts,maturity,locale,target_os,min_wapt_version,sources,installed_size,impacted_process,description_fr,description_pl,description_de,description_es,description_pt,description_it,description_nl,description_ru,audit_schedule,editor,keywords,licence,homepage,package_uuid,valid_from,valid_until,forced_install_on,changelog,min_os_version,max_os_version,icon_sha256sum,signer,signer_fingerprint,signature_date,signed_attributes
+signature         : Y0EfXNgCulfiup/NOBRXwiucal7iPZnzs6srv3VZlAAxARTNd6aJR1ii4jsAvxMDFYJMzne1SBVAIftQ7NZ3yAl7xPsAJzHt5gfSiY8a1CuoyZeH7PAO3GzLc1oEJyPayQ/xTkS6ctXPNoNfgURXJxqeNsXF4qR8oIvISne9LvCF/ggIBE7PJMWRzVntZkvXr821m2Ytzcm3SBDAYMjL34esIZ3vwQnLPUxsZ9v7ydk1D2/K48qXxnJOM9b6Dv6jILCYNc7dQ3VZB5fYTp8lN8G4YSyl7rm0qytxgkoW960xMAZBdvU83xIC9vPudGu+20NR+rPNZD6mwKNDMyyUhw==
