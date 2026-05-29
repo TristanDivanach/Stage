@@ -1,0 +1,44 @@
+package           : tech-remove-glpi
+version           : 2.0-0
+architecture      : all
+section           : base
+priority          : optional
+name              : Desinstallation de l'agent GLPI
+categories        : Maintenance
+maintainer        : Admin
+description       : Desinstalle l'agent GLPI proprement
+depends           : 
+conflicts         : 
+maturity          : PROD
+locale            : all
+target_os         : windows
+min_wapt_version  : 
+sources           : 
+installed_size    : 
+impacted_process  : glpi-agent.exe
+description_fr    : Arrete, desinstalle l agent GLPI et supprime les fichiers residuels
+description_pl    : 
+description_de    : 
+description_es    : 
+description_pt    : 
+description_it    : 
+description_nl    : 
+description_ru    : 
+audit_schedule    : 
+editor            : 
+keywords          : 
+licence           : 
+homepage          : 
+package_uuid      : 923c790c-01a5-4387-a563-587da633f62a
+valid_from        : 
+valid_until       : 
+forced_install_on : 
+changelog         : 
+min_os_version    : 
+max_os_version    : 
+icon_sha256sum    : 
+signer            : technature_master
+signer_fingerprint: b99c0b76fbfa9ed63036e13517fe48e721cfaf9401aeb51b82e5e4076b96c5a9
+signature_date    : 2026-05-29T09:29:55.000000
+signed_attributes : package,version,architecture,section,priority,name,categories,maintainer,description,depends,conflicts,maturity,locale,target_os,min_wapt_version,sources,installed_size,impacted_process,description_fr,description_pl,description_de,description_es,description_pt,description_it,description_nl,description_ru,audit_schedule,editor,keywords,licence,homepage,package_uuid,valid_from,valid_until,forced_install_on,changelog,min_os_version,max_os_version,icon_sha256sum,signer,signer_fingerprint,signature_date,signed_attributes
+signature         : WvAmfSEqDCiKyFGMMmm6ZLqsaZ7tm1dNWtSGHDRVeD8MvK+4Qa4AqV8MNqRy6jcLvybSGYGU4kNtTy9atgd4GfHhleTRIfxOSHpJCFbjrGs6WmfVmB+Kpo2N00JhVekcDl9TpmjAbcDxG1A7k3YV1FUTrt8sv3hfJWtfZclPXuU4zammD+/GaRDLAmkgDiiX3X9gnAid5P4XV+6zSF9Q+cCG403VRC6OTCN3syvpYXQ/qpSRbUMdG/k8zL5Jcln283sD54CtCfY+LmmtLVEzi17oUSCSANmIjU9e0eIhW1PD0tLVmIiZqZgzL9WbsyGyKmtPnrNjnFUKzg6wlOswzA==

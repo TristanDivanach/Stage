@@ -1,0 +1,377 @@
+================================================================
+DEPLOIEMENT D'UN PAQUET WAPT DE DESINSTALLATION DE L'AGENT GLPI
+Documentation post-mortem et procedure validee
+================================================================
+
+CONTEXTE
+--------
+Objectif : creer un paquet WAPT nomme "tech-remove-glpi" capable
+de desinstaller proprement l'agent GLPI (service + programme +
+dossier residuel) sur les postes du parc, puis le deployer sur
+une machine de test.
+
+Environnement :
+- Serveur WAPT : wapt.technature.bzh
+- Machine de build : poste avec WAPTConsole 2.6.1.17765
+- Machine cible : poste Windows avec GLPI Agent 1.17 installe
+  (GUID MSI : {5332E0B7-6BF4-1014-9007-D34CA10DA491})
+
+
+================================================================
+PROCEDURE QUI A FONCTIONNE (toute en PowerShell)
+================================================================
+
+A executer dans une console PowerShell ADMINISTRATEUR.
+
+--- PHASE 1 : SUR LA MACHINE DE BUILD ---
+
+ETAPE 1.1 - Nettoyer les anciens dossiers source
+-------------------------------------------------
+On supprime tous les vestiges des tentatives precedentes pour
+partir d'un environnement propre.
+
+    Remove-Item -Recurse -Force C:\waptdev\tech-remove-glpi* -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force C:\dev-wapt -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force C:\temp\verif* -ErrorAction SilentlyContinue
+
+
+ETAPE 1.2 - Creer l'arborescence du paquet
+-------------------------------------------
+Structure minimale attendue par WAPT :
+- un dossier racine
+- un sous-dossier WAPT/
+- un setup.py a la racine
+- un fichier control dans WAPT/
+
+    New-Item -ItemType Directory -Path C:\waptdev\tech-remove-glpi\WAPT -Force
+
+
+ETAPE 1.3 - Ecrire le setup.py (en UTF-8 SANS BOM)
+---------------------------------------------------
+Le setup.py contient la logique d'installation. Ici, malgre le
+nom "install", la fonction desinstalle GLPI : c'est le paquet
+lui-meme qui est "installe" sur la machine, et son action est
+de supprimer GLPI.
+
+    $setupContent = @'
+    # -*- coding: utf-8 -*-
+    from setuphelpers import *
+
+    uninstallkey = []
+
+    def install():
+        print("=== Desinstallation de l'agent GLPI ===")
+
+        if service_installed('glpi-agent'):
+            if service_is_running('glpi-agent'):
+                print("Arret du service glpi-agent...")
+                service_stop('glpi-agent')
+            print("Desactivation du service glpi-agent...")
+            run('sc config glpi-agent start= disabled', accept_returncodes=[0, 1060])
+        else:
+            print("Service glpi-agent absent")
+
+        softs = installed_softwares('glpi agent')
+        if not softs:
+            print("Aucun logiciel 'GLPI Agent' trouve dans le registre")
+        else:
+            for soft in softs:
+                print(f"Trouve : {soft['name']} (cle: {soft['key']})")
+                key = soft['key']
+                if key.startswith('{') and key.endswith('}'):
+                    cmd = f'msiexec /x "{key}" /quiet /norestart'
+                else:
+                    cmd = soft.get('uninstall_string', '') + ' /quiet /norestart'
+                print(f"Commande : {cmd}")
+                run(cmd, accept_returncodes=[0, 1605, 3010])
+
+        glpi_dir = makepath(programfiles, 'GLPI-Agent')
+        if isdir(glpi_dir):
+            print(f"Suppression du dossier residuel : {glpi_dir}")
+            remove_tree(glpi_dir)
+        else:
+            print("Pas de dossier residuel")
+
+        print("=== Termine ===")
+    '@
+
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText("C:\waptdev\tech-remove-glpi\setup.py", $setupContent, $utf8NoBom)
+
+Logique du setup.py :
+1) Arret du service "glpi-agent" s'il existe et tourne.
+2) Desactivation du demarrage automatique du service.
+3) Recherche de toute entree de registre dont le nom contient
+   "glpi agent" via installed_softwares().
+4) Pour chaque entree trouvee, reconstruction d'une commande
+   msiexec /x "{GUID}" /quiet /norestart (le /X force la
+   desinstallation ; la chaine native du registre contient
+   souvent /I qui RELANCE l'installeur, c'est pour ca qu'on
+   reconstruit la commande).
+5) Acceptation des codes retour 1605 (produit deja absent) et
+   3010 (succes avec demande de reboot) en plus du 0.
+6) Suppression du dossier residuel C:\Program Files\GLPI-Agent.
+
+
+ETAPE 1.4 - Ecrire le control (en UTF-8 SANS BOM)
+--------------------------------------------------
+Le fichier control decrit le paquet. Les champs maturity,
+locale, architecture et target_os sont OBLIGATOIRES pour que
+WAPT puisse construire le nom du fichier .wapt.
+
+    $controlContent = @'
+    package           : tech-remove-glpi
+    version           : 2.0-0
+    architecture      : all
+    maturity          : PROD
+    locale            : all
+    section           : base
+    priority          : optional
+    name              : Desinstallation de l'agent GLPI
+    categories        : Maintenance
+    maintainer        : Admin
+    description       : Desinstalle l'agent GLPI proprement
+    depends           : 
+    conflicts         : 
+    target_os         : windows
+    min_os_version    : 
+    max_os_version    : 
+    impacted_process  : glpi-agent.exe
+    description_fr    : Arrete, desinstalle l agent GLPI et supprime les fichiers residuels
+    audit_schedule    : 
+    installed_size    : 
+    signer            : 
+    signer_fingerprint: 
+    signature_date    : 
+    '@
+
+    [System.IO.File]::WriteAllText("C:\waptdev\tech-remove-glpi\WAPT\control", $controlContent, $utf8NoBom)
+
+Points cles :
+- version : 2.0-0 (volontairement loin des 1.0.x pour casser
+  tout cache potentiel des tentatives precedentes).
+- architecture : all (pas de binaire embarque).
+- maturity : PROD (les clients filtrent sur cette valeur).
+- locale : all (compatible toutes locales).
+- min_os_version et max_os_version vides (compatible toutes
+  versions Windows ; les anciens paquets etaient verrouilles
+  sur la build 10.0.26200, ce qui les rendait inutilisables
+  ailleurs).
+
+
+ETAPE 1.5 - Verifier le contenu avant build
+--------------------------------------------
+On contole que les fichiers ont bien ete ecrits sans BOM et
+qu'ils contiennent le bon code.
+
+    # Verification absence de BOM
+    $bytes = [System.IO.File]::ReadAllBytes("C:\waptdev\tech-remove-glpi\WAPT\control")
+    Write-Host "Premier caractere : $([char]$bytes[0])"
+    # Doit afficher : Premier caractere : p
+
+    # Verification du code Python
+    Get-Content C:\waptdev\tech-remove-glpi\setup.py | Select-String -Pattern "installed_softwares"
+    # Doit retourner au moins une ligne
+
+
+ETAPE 1.6 - Construire, signer et uploader le paquet
+-----------------------------------------------------
+La commande wapt-get build-upload fait les trois etapes
+d'un coup. Elle demandera le mot de passe de la cle privee
+de signature.
+
+    cd C:\waptdev
+    wapt-get build-upload .\tech-remove-glpi\
+
+Sortie attendue :
+- "Server: https://wapt.technature.bzh"
+- "Authenticated as admin"
+- "Uploading tech-remove-glpi_2.0-0_windows_PROD.wapt ... done"
+- "OK : 1 Packages uploaded, 0 errors"
+
+
+--- PHASE 2 : SUR LA MACHINE CIBLE ---
+
+ETAPE 2.1 - Forcer la mise a jour et l'installation
+----------------------------------------------------
+
+    wapt-get update --force
+    wapt-get install tech-remove-glpi --force
+
+L'option --force est essentielle pour faire reexecuter le
+paquet meme si WAPT pense l'avoir deja tente (ce qui etait
+le cas a cause des echecs precedents).
+
+Sortie attendue dans les logs du paquet :
+    === Desinstallation de l'agent GLPI ===
+    Trouve : GLPI Agent 1.17 (cle: {5332E0B7-6BF4-1014-9007-D34CA10DA491})
+    Commande : msiexec /x "{5332E0B7-...}" /quiet /norestart
+    === Termine ===
+
+
+ETAPE 2.2 - Verifier que GLPI a bien ete supprime
+--------------------------------------------------
+
+    Get-Service glpi-agent -ErrorAction SilentlyContinue
+    Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object { $_.DisplayName -like "*GLPI*" }
+    Test-Path "$env:ProgramFiles\GLPI-Agent"
+
+Si tout est OK :
+- Le service n'existe plus.
+- Aucune entree registre ne contient "GLPI".
+- Le dossier C:\Program Files\GLPI-Agent n'existe plus.
+
+
+================================================================
+POURQUOI CA NE MARCHAIT PAS - HISTORIQUE DES BLOCAGES
+================================================================
+
+Le deploiement a echoue 6 fois avant de fonctionner. Voici
+chaque cause, dans l'ordre.
+
+
+BLOCAGE N°1 - "ModuleNotFoundError: No module named 'waptkeys'"
+---------------------------------------------------------------
+Cause : le setup.py initial commencait par
+    from waptkeys import *
+Or aucun fichier waptkeys.py n'existait dans le paquet.
+Ce module n'est pas standard dans WAPT : c'est un fichier
+custom souvent utilise pour centraliser des constantes
+(cles, URL serveur, tokens). Le paquet avait ete copie
+depuis un template ou cet import etait present, mais le
+fichier waptkeys.py n'a jamais ete inclus.
+
+Solution : supprimer la ligne. Aucune variable de waptkeys
+n'etait reellement utilisee dans le code.
+
+
+BLOCAGE N°2 - "NameError: name 'uninstall_keys_from_registry' is not defined"
+-----------------------------------------------------------------------------
+Cause : la fonction uninstall_keys_from_registry() N'EXISTE
+PAS dans setuphelpers. C'etait un nom de fonction errone.
+
+Solution : utiliser la vraie fonction, installed_softwares(),
+qui retourne une liste de dictionnaires avec les champs name,
+version, key et uninstall_string pour chaque logiciel
+correspondant au filtre.
+
+
+BLOCAGE N°3 - Les nouvelles versions ne s'appliquaient pas
+-----------------------------------------------------------
+Symptome : on incrementait la version (1.0.1 -> 1.0.5 -> 1.0.7)
+mais la machine cible continuait a planter avec exactement
+la meme erreur "uninstall_keys_from_registry".
+
+Cause : "wapt-get upgrade" ne reessaie pas un paquet qui a
+deja echoue dans une version anterieure. Il faut forcer la
+reinstallation explicitement avec :
+    wapt-get install tech-remove-glpi --force
+
+
+BLOCAGE N°4 - Le .wapt uploade ne contenait pas le bon code
+------------------------------------------------------------
+Symptome : meme apres modification du setup.py et rebuild,
+le .wapt sur le serveur contenait toujours le vieux code.
+
+Cause : WAPTConsole, quand on utilise "Editer le paquet",
+extrait le paquet dans un dossier dont le nom encode la
+maturite et la version (par exemple
+C:\waptdev\tech-remove-glpi_0_PROD-wapt\). Les fichiers
+extraits appartenaient a l'utilisateur SYSTEM avec des ACL
+restrictives. Les modifications etaient soit perdues
+(droits d'ecriture refuses silencieusement), soit appliquees
+a un autre dossier source que celui que WAPTConsole utilisait
+pour le build.
+
+Solution : sortir entierement de WAPTConsole pour la phase de
+build. Ecrire les fichiers directement en PowerShell dans un
+chemin propre, puis utiliser "wapt-get build-upload" en ligne
+de commande. On controle ainsi exactement quel dossier source
+est utilise.
+
+
+BLOCAGE N°5 - "Not enough information to build the package filename for (=2.0-0)"
+---------------------------------------------------------------------------------
+Symptome : le build planait sans aucun upload, juste apres la
+saisie du mot de passe de la cle privee. L'erreur ne donnait
+PAS le nom du paquet, juste "(=2.0-0)".
+
+Cause : le fichier control ne contenait pas les champs
+maturity, locale, et target_os correctement renseignes. WAPT
+construit le nom du fichier .wapt en concatenant ces champs :
+    {package}_{version}_{target_os}_{maturity}.wapt
+Si l'un manque ou est mal lu, le nom ne peut pas etre forme.
+
+Solution : ajouter explicitement maturity : PROD, locale : all
+et s'assurer que target_os : windows est present.
+
+
+BLOCAGE N°6 - BOM UTF-8 ecrit par PowerShell 5.1
+-------------------------------------------------
+Symptome : meme apres avoir corrige le control avec tous les
+champs, l'erreur "Not enough information..." persistait. Et
+l'erreur affichait "(=2.0-0)" SANS le nom du paquet.
+
+Cause : PowerShell 5.1 (celui de Windows 10/11 par defaut),
+quand on utilise Set-Content -Encoding UTF8, ajoute un Byte
+Order Mark (BOM) en debut de fichier. Ce BOM est invisible
+mais correspond a 3 octets : 0xEF 0xBB 0xBF.
+Le parseur Python de WAPT lisait alors le premier champ comme
+"\ufeffpackage" au lieu de "package", donc le nom du paquet
+n'etait jamais reconnu, et l'assemblage du filename echouait.
+D'ou le "(=2.0-0)" sans prefixe : la version etait lue
+(champ 2), mais pas le nom (champ 1, corrompu par le BOM).
+
+Solution : ecrire les fichiers en UTF-8 SANS BOM via .NET
+plutot que via les cmdlets PowerShell :
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
+
+Verification :
+    $bytes = [System.IO.File]::ReadAllBytes($path)
+    [char]$bytes[0]    # Doit etre 'p' (de 'package'), pas un caractere invisible
+
+
+================================================================
+LECONS A RETENIR POUR LES PROCHAINS PAQUETS
+================================================================
+
+1) Le code du setup.py doit utiliser UNIQUEMENT des fonctions
+   reellement presentes dans setuphelpers. En cas de doute,
+   tester d'abord dans une session Python WAPT.
+
+2) Pour iterer rapidement sur un paquet, eviter WAPTConsole
+   et utiliser "wapt-get build-upload <dossier>" en ligne
+   de commande. Le chemin source est explicite, pas de cache
+   cache, pas de probleme d'ACL.
+
+3) Toujours ecrire les fichiers control et setup.py en UTF-8
+   SANS BOM. PowerShell 5.1 ajoute un BOM par defaut, il faut
+   utiliser [System.IO.File]::WriteAllText() avec un encoder
+   UTF8Encoding($false).
+
+4) Le fichier control DOIT contenir au minimum :
+   package, version, architecture, maturity, locale, target_os.
+
+5) Apres un echec d'installation, le client WAPT ne reessaie
+   pas tout seul. Utiliser "wapt-get install <paquet> --force"
+   pour forcer la reexecution.
+
+6) Pour desinstaller un logiciel via MSI, NE PAS reutiliser la
+   chaine UninstallString telle quelle : elle contient souvent
+   "MsiExec.exe /I{GUID}" (le /I relance l'installation).
+   Reconstruire la commande avec /X :
+        msiexec /x "{GUID}" /quiet /norestart
+
+7) Accepter les codes retour 1605 (produit deja absent) et
+   3010 (succes avec reboot necessaire) en plus du 0 pour
+   ne pas faire echouer le paquet inutilement.
+
+8) Pour verifier ce que contient un .wapt avant de le
+   deployer : c'est un fichier ZIP renomme. On peut l'extraire
+   avec Expand-Archive apres copie en .zip.
+
+
+================================================================
+FIN DU DOCUMENT
+================================================================
