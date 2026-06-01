@@ -43,20 +43,3 @@ def install():
             print("Service glpi-agent deja en cours d'execution")
 
     print("=== Termine ===")
-
-
-def uninstall():
-    print("=== Desinstallation de l'agent GLPI ===")
-
-    if service_installed('glpi-agent') and service_is_running('glpi-agent'):
-        print("Arret du service glpi-agent...")
-        service_stop('glpi-agent')
-
-    for soft in installed_softwares('glpi agent'):
-        key = soft['key']
-        if key.startswith('{') and key.endswith('}'):
-            print(f"Desinstallation MSI : {soft['name']}")
-            run(f'msiexec /x "{key}" /quiet /norestart',
-                accept_returncodes=[0, 1605, 3010])
-
-    print("=== Termine ===")
