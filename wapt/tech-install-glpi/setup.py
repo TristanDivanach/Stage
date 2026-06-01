@@ -4,8 +4,7 @@ from setuphelpers import *
 uninstallkey = []
 
 # === CONFIGURATION GLPI - A ADAPTER SI BESOIN ===
-GLPI_SERVER = 'http://glpi.technature.bzh/marketplace/glpiinventory/'
-GLPI_TAG = ''  # Optionnel : tag pour identifier les agents
+GLPI_SERVER = 'https://glpi.example.xxx/glpi/front/inventory.php'
 # =================================================
 
 def install():
@@ -22,8 +21,7 @@ def install():
         'INSTALLTASKS': 'Inventory,Collect,ESX,InstallRemove,WakeOnLan,Deploy',
         'ADD_FIREWALL_EXCEPTION': '1',
     }
-    if GLPI_TAG:
-        properties['TAG'] = GLPI_TAG
+    
 
     print(f"Installation depuis : {msi_file}")
     for k, v in properties.items():
